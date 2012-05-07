@@ -2,3 +2,5 @@ eggs/
 bin/
 develop-eggs/
 parts/
+*.pyc
+.installed.cfg
