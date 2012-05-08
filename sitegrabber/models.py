@@ -4,7 +4,7 @@ from sqlalchemy import (
     Text,
     )
 
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.declarative import declarative_base, declared_attr
 
 from sqlalchemy.orm import (
     scoped_session,
@@ -14,15 +14,16 @@ from sqlalchemy.orm import (
 from zope.sqlalchemy import ZopeTransactionExtension
 
 DBSession = scoped_session(sessionmaker(extension=ZopeTransactionExtension()))
-Base = declarative_base()
 
-class MyModel(Base):
-    __tablename__ = 'models'
-    id = Column(Integer, primary_key=True)
-    name = Column(Text, unique=True)
-    value = Column(Integer)
+class Base(object):
 
-    def __init__(self, name, value):
-        self.name = name
-        self.value = value
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
 
+    @declared_attr
+    def __tablename__(cls):
+        return cls.__name__.lower()
+
+    id = Column(Integer, primary_key=True)    
+
+Base = declarative_base(cls=Base)
