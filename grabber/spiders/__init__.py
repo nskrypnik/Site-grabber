@@ -27,3 +27,6 @@ class GrabberSpider(BaseSpider):
             
         for img in hxs.select('//img/@src').extract():
             log.msg(img, level=log.DEBUG)
+            
+        for js in hxs.select('//script/@src').extract():
+            log.msg(js, level=log.DEBUG)
