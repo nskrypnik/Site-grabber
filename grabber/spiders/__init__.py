@@ -4,12 +4,14 @@
 # your spiders.
 
 import sys
+import transaction
 
 from scrapy.spider import BaseSpider
 from scrapy.selector import HtmlXPathSelector
 from scrapy import log
+from scrapy.http import Request
 
-from sitegrabber.models import DBSession, Base
+from sitegrabber.models import DBSession, Base, WebPage, WebSite
 from grabber.settings import WEB_APP_SETTINGS
 from sqlalchemy import engine_from_config
 
@@ -28,11 +30,21 @@ class GrabberSpider(BaseSpider):
         engine = engine_from_config(WEB_APP_SETTINGS, 'sqlalchemy.')
         DBSession.configure(bind=engine)
         Base.metadata.create_all(engine) # while use creating DB here
-
+        
+        q = DBSession.query(WebSite).filter(WebSite.original_url == "www.lierd.com")
+        website = q.first()
+        if website is None:
+            website = WebSite(original_url="www.lierd.com", local_domain='test.localhost')
+            DBSession.add(website)
+            DBSession.flush()
+            transaction.commit()
+        self.website = website
+        
     def parse(self, response):
+        
+        self.handle_page(response)
+    
         hxs = HtmlXPathSelector(response)
-        for url in hxs.select('//a/@href').extract():
-            log.msg(url, level=log.DEBUG)
             
         for css in hxs.select('//link/@href').extract():
             log.msg(css, level=log.DEBUG)
@@ -42,3 +54,21 @@ class GrabberSpider(BaseSpider):
             
         for js in hxs.select('//script/@src').extract():
             log.msg(js, level=log.DEBUG)
+
+        for url in hxs.select('//a/@href').extract():
+            yield Request(url, callback=self.parse)
+
+    
+    def _get_path(self, url):
+        path = url.replace('http://', '')
+        path = path.split('/')
+        path[0] = ''
+        return '/'.join(path)
+    
+    def handle_page(self, response):
+        path = self._get_path(response.url)
+        log.msg('Scraping page %s' % path, level=log.DEBUG)
+        page = WebPage(uri=path, content=response.body, website=self.website)
+        DBSession.add(page)
+        DBSession.flush()
+        transaction.commit()
