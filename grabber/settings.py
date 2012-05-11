@@ -26,5 +26,8 @@ SPIDER_MODULES = ['grabber.spiders']
 NEWSPIDER_MODULE = 'grabber.spiders'
 USER_AGENT = '%s/%s' % (BOT_NAME, BOT_VERSION)
 
-
-
+ITEM_PIPELINES = [
+                    #'scrapy.contrib.pipeline.images.ImagesPipeline',
+                    'grabber.pipelines.GrabberPipeline',   
+                 ]
+IMAGES_STORE = os.path.join(os.getcwd(), 'sitegrabber', 'static', 'upload')

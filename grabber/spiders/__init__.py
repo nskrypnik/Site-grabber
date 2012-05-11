@@ -17,6 +17,7 @@ from grabber.settings import WEB_APP_SETTINGS
 from sqlalchemy import engine_from_config
 from sqlalchemy.orm import Session
 
+from grabber.items import WebPageItem
 class GrabberSpider(CrawlSpider):
     name = "grabber"
     allowed_domains = ["www.lierd.com"]
@@ -29,7 +30,7 @@ class GrabberSpider(CrawlSpider):
     ]
     
     rules = [
-        Rule(SgmlLinkExtractor(), callback='parse_item'),
+        Rule(SgmlLinkExtractor(), callback='parse_item', follow=True),
     ]
     
     def __init__(self, *args, **kw):
@@ -81,32 +82,8 @@ class GrabberSpider(CrawlSpider):
     def parse_item(self, response):
         
         log.msg('I\'m here: %s' % response.url, level=log.DEBUG)
-        if 'text/html' in response.headers['Content-Type']:
-            self.handle_page(response)
-        hxs = HtmlXPathSelector(response)
-        '''
-        for css in hxs.select('//link/@href').extract():
-            log.msg(css, level=log.DEBUG)
-            
-        for img in hxs.select('//img/@src').extract():
-            log.msg(img, level=log.DEBUG)
-            
-        for js in hxs.select('//script/@src').extract():
-            log.msg(js, level=log.DEBUG)
-        
-        for url in hxs.select('//a/@href').extract():
-            log.msg('Going by link %s' % url, level=log.DEBUG)
-            if WebPage.exists(self._get_path(url)):
-                continue
-            url = self.prepare_link(url, response.url)
-            if not url:
-                continue
-            if url in self.__class__.SCRAPED_URLS: continue
-            self.__class__.SCRAPED_URLS.append(url)
-            time.sleep(0.1)
-            yield Request(url, callback=self.parse)
-        '''
-
+        #if 'text/html' in response.headers['Content-Type']:
+        return self.handle_page(response)
     
     def _get_path(self, url):
         path = url.replace('http://', '')
@@ -118,5 +95,8 @@ class GrabberSpider(CrawlSpider):
         path = self._get_path(response.url)
         log.msg('Scraping page %s' % path, level=log.DEBUG)
         content = response.body.decode(response.encoding)
-        WebPage.add(uri=path, content=content, website=self.website)
-        self.dbsession.commit()
+        #WebPage.add(uri=path, content=content, website=self.website)
+        #self.dbsession.commit()
+        item = WebPageItem(uri=path, content=content)
+        item['response'] = response
+        return item

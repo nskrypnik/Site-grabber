@@ -9,3 +9,8 @@ class GrabberItem(Item):
     # define the fields for your item here like:
     # name = Field()
     pass
+    
+class WebPageItem(Item):
+    uri = Field()
+    content = Field()
+    response = Field()

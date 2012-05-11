@@ -4,3 +4,4 @@ develop-eggs/
 parts/
 *.pyc
 .installed.cfg
+sitegrabber.db
