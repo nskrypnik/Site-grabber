@@ -5,6 +5,7 @@
 
 import sys
 import time
+import os
 
 from scrapy.contrib.spiders import CrawlSpider, Rule
 from scrapy.selector import HtmlXPathSelector
@@ -18,6 +19,8 @@ from sqlalchemy import engine_from_config
 from sqlalchemy.orm import Session
 
 from grabber.items import WebPageItem
+
+
 class GrabberSpider(CrawlSpider):
     name = "grabber"
     allowed_domains = ["www.lierd.com"]
@@ -53,7 +56,21 @@ class GrabberSpider(CrawlSpider):
             self.dbsession.add(website)
             self.dbsession.commit()
         self.website = website
-        
+
+        '''
+            Check directory for media and create it if it does not exist
+        '''
+        media_dir = WEB_APP_SETTINGS.get('downloaded.path')
+        if media_dir:
+            if not os.path.exists(media_dir):
+                os.mkdir(media_dir)
+        else:
+            raise Exception('Directory for downloaded media is not specified in settings')
+
+        '''
+            Check id downloaded media url is in application settings
+        '''
+        if WEB_APP_SETTINGS.get('downloaded.url') is None: raise Exception('URL for downloaded media is not specified')
     
     def prepare_link(self, url, current_url):
         '''

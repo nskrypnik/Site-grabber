@@ -27,7 +27,6 @@ NEWSPIDER_MODULE = 'grabber.spiders'
 USER_AGENT = '%s/%s' % (BOT_NAME, BOT_VERSION)
 
 ITEM_PIPELINES = [
-                    #'scrapy.contrib.pipeline.images.ImagesPipeline',
                     'grabber.pipelines.GrabImagesPipeline',
                     'grabber.pipelines.SaveGrabbedPipeline',
                  ]
