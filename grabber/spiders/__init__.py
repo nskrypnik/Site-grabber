@@ -33,7 +33,8 @@ class GrabberSpider(CrawlSpider):
     ]
     
     rules = [
-        Rule(SgmlLinkExtractor(), callback='parse_item', follow=True),
+        #Rule(SgmlLinkExtractor(), callback='parse_item', follow=True),
+        Rule(SgmlLinkExtractor(allow=[r'.*\.css'], deny_extensions=[], tags=['link',], attrs=['href',]), callback='parse_css_item', follow=False),
     ]
     
     def __init__(self, *args, **kw):
@@ -99,21 +100,23 @@ class GrabberSpider(CrawlSpider):
     def parse_item(self, response):
         
         log.msg('I\'m here: %s' % response.url, level=log.DEBUG)
-        #if 'text/html' in response.headers['Content-Type']:
         return self.handle_page(response)
-    
+
+    def parse_css_item(self, response):
+
+        log.msg('I\'m here: %s' % response.url, level=log.DEBUG)
+        return self.handle_page(response, css=True)
+
+
     def _get_path(self, url):
         path = url.replace('http://', '')
         path = path.split('/')
         path[0] = ''
         return '/'.join(path)
     
-    def handle_page(self, response):
+    def handle_page(self, response, css=False):
         path = self._get_path(response.url)
         log.msg('Scraping page %s' % path, level=log.DEBUG)
         content = response.body.decode(response.encoding)
-        #WebPage.add(uri=path, content=content, website=self.website)
-        #self.dbsession.commit()
-        item = WebPageItem(uri=path, content=content)
-        item['response'] = response
+        item = WebPageItem(uri=path, content=content, css=css, response=response)
         return item

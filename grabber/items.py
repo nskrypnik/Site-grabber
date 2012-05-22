@@ -14,3 +14,4 @@ class WebPageItem(Item):
     uri = Field()
     content = Field()
     response = Field()
+    css = Field() # Shows if the given page is css or not

@@ -29,5 +29,6 @@ USER_AGENT = '%s/%s' % (BOT_NAME, BOT_VERSION)
 ITEM_PIPELINES = [
                     'grabber.pipelines.GrabImagesPipeline',
                     'grabber.pipelines.SaveGrabbedPipeline',
+                    'grabber.pipelines.GarbberCSSImagePipeline',
                  ]
 IMAGES_STORE = os.path.join(os.getcwd(), 'sitegrabber', 'static', 'upload')

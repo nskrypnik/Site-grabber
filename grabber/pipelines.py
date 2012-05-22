@@ -5,6 +5,9 @@
 
 import os
 import hashlib
+import re
+import cssutils
+from cssutils.css import CSSStyleSheet
 from scrapy.contrib.pipeline.media import MediaPipeline
 from scrapy.contrib.pipeline.images import ImagesPipeline
 from scrapy.contrib.linkextractors.sgml import SgmlLinkExtractor
@@ -128,5 +131,22 @@ class GrabImagesPipeline(MediaPipeline):
 
 
     def item_completed(self, results, item, info):
-        import pdb; pdb.set_trace()
         return item
+
+class GarbberCSSImagePipeline(GrabImagesPipeline):
+    '''
+        Grab images from css files
+    '''
+
+    def process_item(self, item, spider):
+        ' work just with css pages '
+        if item['css']:
+            return super(GarbberCSSImagePipeline, self).process_item(item, spider)
+        return item
+
+    def get_media_requests(self, item, info):
+        sheet = CSSStyleSheet()
+        sheet.cssText = item['content']
+        urls = cssutils.getUrls(sheet)
+        return [Request(u) for u in urls]
+
