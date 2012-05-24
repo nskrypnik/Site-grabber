@@ -50,50 +50,53 @@ class SaveGrabbedPipeline(object):
     def process_item(self, item, spider):
         return item
 
-class GrabImagesPipeline(MediaPipeline):
+class GrabMediaPipeline(MediaPipeline):
+    '''
+        Abstract pipline class for grabbing all media from page: images, javascripts,
+        swf files.
+    '''
 
-    PAGE_IMAGES = {}
-    LOCAL_IMAGES_URI = {}
+    link_extractor = None
 
     def __init__(self, *args, **kw):
-        super(GrabImagesPipeline, self).__init__(*args, **kw)
-        self.link_extractor = GrabberLinkExtractor(tags=['img', ], attrs=['src', ], deny_extensions=[], canonicalize=False)
-        self.img_store_path = WEB_APP_SETTINGS.get('downloaded.path')
-        self.img_local_url = WEB_APP_SETTINGS.get('downloaded.url')
+        super(GrabMediaPipeline, self).__init__(*args, **kw)
+        self.media_store_path = WEB_APP_SETTINGS.get('downloaded.path')
+        self.media_local_url = WEB_APP_SETTINGS.get('downloaded.url')
+        self.PAGE_MEDIA = {}
+        self.LOCAL_MEDIA_URI = {}
 
-
-    def get_image_checksum(self, image_data):
+    def get_media_checksum(self, media_data):
         '''
             Get checksum for downloaded media
         '''
         checksum = hashlib.sha1()
         pos = 0
         chunk_size = 1024
-        while pos < len(image_data):
-            checksum.update(image_data[pos: pos+chunk_size])
+        while pos < len(media_data):
+            checksum.update(media_data[pos: pos+chunk_size])
             pos += chunk_size
         return checksum.hexdigest()
 
-    def get_image_name(self, img_url):
-        return img_url.split('/')[-1]
+    def get_media_name(self, media_url):
+        return media_url.split('/')[-1]
 
-    def save_img_to_file(self, img_name, checksum, img_data):
-        img_dir_path = os.path.join(self.img_store_path, checksum)
-        if not os.path.exists(img_dir_path):
-            os.mkdir(img_dir_path)
+    def save_media_to_file(self, media_name, checksum, media_data):
+        media_dir_path = os.path.join(self.media_store_path, checksum)
+        if not os.path.exists(media_dir_path):
+            os.mkdir(media_dir_path)
         else:
             '''
                 Such image is already exists
             '''
-        img_path = os.path.join(self.img_store_path, checksum, img_name)
-        img_file = open(img_path, 'wb')
-        img_file.write(img_data)
+        media_path = os.path.join(self.media_store_path, checksum, media_name)
+        media_file = open(media_path, 'wb')
+        media_file.write(media_data)
 
     def get_media_requests(self, item, info):
         links = self.link_extractor.extract_links(item['response'])
-        self.PAGE_IMAGES[item['uri']] = []
+        self.PAGE_MEDIA[item['uri']] = []
         for link in links:
-             self.PAGE_IMAGES[item['uri']].append(link.url)
+             self.PAGE_MEDIA[item['uri']].append(link.url)
              item['content'] = item['content'].replace(link.raw_url, link.url)
         return [Request(l.url) for l in links]
         
@@ -110,30 +113,38 @@ class GrabImagesPipeline(MediaPipeline):
         referer = request.headers.get('Referer')
 
         if response.status != 200:
-            log.msg('Image (code: %s): Error downloading image from %s referred in <%s>'\
-            % (response.status, request, referer), level=log.WARNING, spider=info.spider)
-            raise ImageException
+            err_msg = 'Media (code: %s): Error downloading image from %s referred in <%s>' % (response.status, request, referer)
+            log.msg(err_msg, level=log.WARNING, spider=info.spider)
+            raise Exception(err_msg)
 
         if not response.body:
-            log.msg('Image (empty-content): Empty image from %s referred in <%s>: no-content'\
-            % (request, referer), level=log.WARNING, spider=info.spider)
-            raise ImageException
+            err_msg = 'Image (empty-content): Empty image from %s referred in <%s>: no-content' % (request, referer)
+            log.msg(err_msg, level=log.WARNING, spider=info.spider)
+            raise Exception(err_msg)
 
         status = 'cached' if 'cached' in response.flags else 'downloaded'
 
-        img_name = self.get_image_name(response.url)
-        checksum = self.get_image_checksum(response.body)
-        local_url = "%s%s/%s" % (self.img_local_url, checksum, img_name)
+        media_name = self.get_media_name(response.url)
+        checksum = self.get_media_checksum(response.body)
+        local_url = "%s%s/%s" % (self.media_local_url, checksum, media_name)
 
-        self.save_img_to_file(img_name, checksum, response.body)
+        self.save_img_to_file(media_name, checksum, response.body)
 
-        return dict(url=response.url, checksum=checksum, img_name=img_name, local_url=local_url)
+        self.process_media(response)
+
+        return dict(url=response.url, checksum=checksum, media_name=media_name, local_url=local_url)
 
 
     def item_completed(self, results, item, info):
         return item
 
-class GarbberCSSImagePipeline(GrabImagesPipeline):
+    def process_media(self, response):
+        raise NotImplementedError
+
+class GrabberImagesPipeline(GrabMediaPipeline):
+    link_extractor = GrabberLinkExtractor(tags=['img', ], attrs=['src', ], deny_extensions=[], canonicalize=False)
+
+class GarbberCSSImagePipeline(GrabMediaPipeline):
     '''
         Grab images from css files
     '''
@@ -149,4 +160,3 @@ class GarbberCSSImagePipeline(GrabImagesPipeline):
         sheet.cssText = item['content']
         urls = cssutils.getUrls(sheet)
         return [Request(u) for u in urls]
-
