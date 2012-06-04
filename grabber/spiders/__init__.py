@@ -33,7 +33,7 @@ class GrabberSpider(CrawlSpider):
     ]
     
     rules = [
-        #Rule(SgmlLinkExtractor(), callback='parse_item', follow=True),
+        Rule(SgmlLinkExtractor(), callback='parse_item', follow=True),
         Rule(SgmlLinkExtractor(allow=[r'.*\.css'], deny_extensions=[], tags=['link',], attrs=['href',]), callback='parse_css_item', follow=False),
     ]
     
@@ -46,7 +46,6 @@ class GrabberSpider(CrawlSpider):
         self.dbsession = Session(bind=conn)
         
         # patch orm objects to use this local session object
-        WebPage.session = self.dbsession
         
         Base.metadata.create_all(engine) # while use creating DB here
         

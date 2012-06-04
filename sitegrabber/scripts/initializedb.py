@@ -9,11 +9,7 @@ from pyramid.paster import (
     setup_logging,
     )
 
-from ..models import (
-    DBSession,
-    MyModel,
-    Base,
-    )
+from ..models import *
 
 def usage(argv):
     cmd = os.path.basename(argv[0])

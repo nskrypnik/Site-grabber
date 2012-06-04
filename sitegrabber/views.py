@@ -1,34 +1,31 @@
 from pyramid.response import Response
 from pyramid.view import view_config
+from pyramid.httpexceptions import HTTPNotFound, HTTPFound
+from .models import WebSite, WebResource
 
 from sqlalchemy.exc import DBAPIError
 
-from .models import (
-    DBSession,
-    MyModel,
-    )
 
-@view_config(route_name='home', renderer='templates/mytemplate.pt')
-def my_view(request):
-    try:
-        one = DBSession.query(MyModel).filter(MyModel.name=='one').first()
-    except DBAPIError:
-        return Response(conn_err_msg, content_type='text/plain', status_int=500)
-    return {'one':one, 'project':'sitegrabber'}
+@view_config(context='pyramid.httpexceptions.HTTPNotFound')
+def not_found_handler(request):
+    '''
+        Usually in our application we use this view.
+    '''
+    host = request.host.split(':')[0] # get url of instance
+    site = WebSite.get(host)
 
-conn_err_msg = """\
-Pyramid is having a problem using your SQL database.  The problem
-might be caused by one of the following things:
+    if site:
+        uri = request.path_qs
+        resource = WebResource.get(uri, site.id)
+        if resource is None and uri[-1] != '/':
+            uri += '/'
+            return HTTPFound(uri)
+        if resource:
+            return Response(resource.content)
+        else:
+            #TODO: try here to proxy request for original site
+            return HTTPNotFound('Not found in cache')
+    else: return HTTPNotFound('No such site in database')
 
-1.  You may need to run the "initialize_sitegrabber_db" script
-    to initialize your database tables.  Check your virtual 
-    environment's "bin" directory for this script and try to run it.
 
-2.  Your database server may not be running.  Check that the
-    database server referred to by the "sqlalchemy.url" setting in
-    your "development.ini" file is running.
-
-After you fix the problem, please restart the Pyramid application to
-try it again.
-"""
 

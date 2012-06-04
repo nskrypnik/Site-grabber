@@ -13,7 +13,9 @@ from scrapy.contrib.pipeline.images import ImagesPipeline
 from scrapy.contrib.linkextractors.sgml import SgmlLinkExtractor
 from scrapy.link import Link
 from scrapy.http import Request
+from scrapy.selector import HtmlXPathSelector
 from grabber.settings import WEB_APP_SETTINGS
+from sitegrabber.models import WebPage, StyleSheet
 
 class GLink(Link):
     __slots__ = ['url', 'text', 'fragment', 'nofollow', 'raw_url']
@@ -48,6 +50,12 @@ class SaveGrabbedPipeline(object):
         Save page to Data Base. Should be executed last after all pipelines
     '''
     def process_item(self, item, spider):
+        if item['css']:
+            klass = StyleSheet
+        else:
+            klass = WebPage
+        klass.add(uri=item['uri'], content=item['content'], website=spider.website, session=spider.dbsession)
+        spider.dbsession.commit()
         return item
 
 class GrabMediaPipeline(MediaPipeline):
@@ -118,7 +126,7 @@ class GrabMediaPipeline(MediaPipeline):
             raise Exception(err_msg)
 
         if not response.body:
-            err_msg = 'Image (empty-content): Empty image from %s referred in <%s>: no-content' % (request, referer)
+            err_msg = 'Media (empty-content): Empty Media from %s referred in <%s>: no-content' % (request, referer)
             log.msg(err_msg, level=log.WARNING, spider=info.spider)
             raise Exception(err_msg)
 
@@ -128,7 +136,7 @@ class GrabMediaPipeline(MediaPipeline):
         checksum = self.get_media_checksum(response.body)
         local_url = "%s%s/%s" % (self.media_local_url, checksum, media_name)
 
-        self.save_img_to_file(media_name, checksum, response.body)
+        self.save_media_to_file(media_name, checksum, response.body)
 
         self.process_media(response)
 
@@ -136,13 +144,63 @@ class GrabMediaPipeline(MediaPipeline):
 
 
     def item_completed(self, results, item, info):
+        item_content = item['content']
+        for success, result in results:
+            if not success:
+                raise result
+            else:
+                item_content = item_content.replace(result['url'], result['local_url'])
+        item['content'] = item_content
         return item
 
     def process_media(self, response):
-        raise NotImplementedError
+        pass
 
 class GrabberImagesPipeline(GrabMediaPipeline):
-    link_extractor = GrabberLinkExtractor(tags=['img', ], attrs=['src', ], deny_extensions=[], canonicalize=False)
+    '''
+        Grab all images both from css and html pages
+    '''
+
+    link_extractor = GrabberLinkExtractor(tags=['img', 'input'], attrs=['src', ], deny_extensions=[], canonicalize=False)
+
+    def get_links_from_css(self, style_text, response):
+        sheet = CSSStyleSheet()
+        sheet.cssText = style_text
+        urls = cssutils.getUrls(sheet)
+        requests = []
+        for url in urls:
+            request_url = response.url.replace('http://', '')
+            if url[0] == '/':
+                request_url = request_url.split('/')[0] + url
+            else:
+                request_url = request_url.split('/')
+                request_url[-1] = url
+                request_url = '/'.join(request_url)
+            request_url = 'http://%s' % request_url
+            requests.append(Request(request_url))
+        return requests
+
+    def get_media_requests(self, item, info):
+        requests = super(GrabberImagesPipeline, self).get_media_requests(item, info)
+        if item['css']:
+            requests.extend(self.get_links_from_css(item['content'], item['response']))
+        else:
+            #try to find in html style tags and parse it's content
+            hxcs = HtmlXPathSelector(item['response'])
+            for style_text in hxcs.select('//style/text()').extract():
+                requests.extend(self.get_links_from_css(style_text, item['response']))
+
+        return requests
+
+
+class GrabberJSPipeline(GrabMediaPipeline):
+    link_extractor = GrabberLinkExtractor(tags=['script', ], attrs=['src', ], deny_extensions=[], canonicalize=False)
+
+class GrabberSWFPipeline(GrabMediaPipeline):
+    '''
+        Grab embedded objects(swf) from page
+    '''
+    link_extractor = GrabberLinkExtractor(tags=['embed', ], attrs=['src', ], deny_extensions=[], canonicalize=False)
 
 class GarbberCSSImagePipeline(GrabMediaPipeline):
     '''
