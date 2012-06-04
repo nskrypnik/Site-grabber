@@ -30,5 +30,7 @@ ITEM_PIPELINES = [
                     'grabber.pipelines.GrabberImagesPipeline',
                     'grabber.pipelines.SaveGrabbedPipeline',
                     'grabber.pipelines.GarbberCSSImagePipeline', # Grab images from stylesheetes
+                    'grabber.pipelines.GrabberJSPipeline',
+                    'grabber.pipelines.GrabberSWFPipeline',
                  ]
 IMAGES_STORE = os.path.join(os.getcwd(), 'sitegrabber', 'static', 'upload')
