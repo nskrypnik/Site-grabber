@@ -16,6 +16,7 @@ from scrapy.http import Request
 from scrapy.selector import HtmlXPathSelector
 from grabber.settings import WEB_APP_SETTINGS
 from sitegrabber.models import WebPage, StyleSheet
+from scrapy import log
 
 class GLink(Link):
     __slots__ = ['url', 'text', 'fragment', 'nofollow', 'raw_url']
@@ -121,7 +122,7 @@ class GrabMediaPipeline(MediaPipeline):
         referer = request.headers.get('Referer')
 
         if response.status != 200:
-            err_msg = 'Media (code: %s): Error downloading image from %s referred in <%s>' % (response.status, request, referer)
+            err_msg = 'Media (code: %s): Error downloading media from %s referred in <%s>' % (response.status, request, referer)
             log.msg(err_msg, level=log.WARNING, spider=info.spider)
             raise Exception(err_msg)
 
@@ -163,11 +164,19 @@ class GrabberImagesPipeline(GrabMediaPipeline):
 
     link_extractor = GrabberLinkExtractor(tags=['img', 'input'], attrs=['src', ], deny_extensions=[], canonicalize=False)
 
-    def get_links_from_css(self, style_text, response):
+    def get_links_from_css(self, style_text, item):
+        '''
+            This function extracts urls from css style text
+            and returns requests for download thees images.
+            Also in this function we are replacing urls to
+            absolute uri to replace it by local url
+        '''
+        response = item['response']
         sheet = CSSStyleSheet()
         sheet.cssText = style_text
         urls = cssutils.getUrls(sheet)
         requests = []
+        item_content = item['content']
         for url in urls:
             request_url = response.url.replace('http://', '')
             if url[0] == '/':
@@ -177,18 +186,20 @@ class GrabberImagesPipeline(GrabMediaPipeline):
                 request_url[-1] = url
                 request_url = '/'.join(request_url)
             request_url = 'http://%s' % request_url
+            item_content = item_content.replace(url, request_url)
             requests.append(Request(request_url))
+        item['content'] = item_content
         return requests
 
     def get_media_requests(self, item, info):
         requests = super(GrabberImagesPipeline, self).get_media_requests(item, info)
         if item['css']:
-            requests.extend(self.get_links_from_css(item['content'], item['response']))
+            requests.extend(self.get_links_from_css(item['content'], item))
         else:
             #try to find in html style tags and parse it's content
             hxcs = HtmlXPathSelector(item['response'])
             for style_text in hxcs.select('//style/text()').extract():
-                requests.extend(self.get_links_from_css(style_text, item['response']))
+                requests.extend(self.get_links_from_css(style_text, item))
 
         return requests
 
