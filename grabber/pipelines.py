@@ -28,6 +28,7 @@ class GLink(Link):
         self.nofollow = nofollow
         self.raw_url = raw_url
 
+
 class GrabberLinkExtractor(SgmlLinkExtractor):
     '''
         Override SgmlLinkExtractor just to add raw_url
@@ -55,14 +56,16 @@ class SaveGrabbedPipeline(object):
             klass = StyleSheet
         else:
             klass = WebPage
-        klass.add(uri=item['uri'], content=item['content'], website=spider.website, session=spider.dbsession)
+        klass.add(uri=item['uri'], content=item['content'],
+            website=spider.website, session=spider.dbsession)
         spider.dbsession.commit()
         return item
 
+
 class GrabMediaPipeline(MediaPipeline):
     '''
-        Abstract pipline class for grabbing all media from page: images, javascripts,
-        swf files.
+        Abstract pipline class for grabbing all media from page:
+        images, javascripts, swf files.
     '''
 
     link_extractor = None
@@ -82,7 +85,7 @@ class GrabMediaPipeline(MediaPipeline):
         pos = 0
         chunk_size = 1024
         while pos < len(media_data):
-            checksum.update(media_data[pos: pos+chunk_size])
+            checksum.update(media_data[pos: pos + chunk_size])
             pos += chunk_size
         return checksum.hexdigest()
 
@@ -105,14 +108,14 @@ class GrabMediaPipeline(MediaPipeline):
         links = self.link_extractor.extract_links(item['response'])
         self.PAGE_MEDIA[item['uri']] = []
         for link in links:
-             self.PAGE_MEDIA[item['uri']].append(link.url)
-             item['content'] = item['content'].replace(link.raw_url, link.url)
+            self.PAGE_MEDIA[item['uri']].append(link.url)
+            item['content'] = item['content'].replace(link.raw_url, link.url)
         return [Request(l.url) for l in links]
-        
+
     def media_to_download(self, request, info):
         """Check request before starting download"""
         pass
-    
+
     def media_downloaded(self, response, request, info):
         """
             Handler for success downloads. Here it would be good to
@@ -141,8 +144,8 @@ class GrabMediaPipeline(MediaPipeline):
 
         self.process_media(response)
 
-        return dict(url=response.url, checksum=checksum, media_name=media_name, local_url=local_url)
-
+        return dict(url=response.url, checksum=checksum,
+                    media_name=media_name, local_url=local_url)
 
     def item_completed(self, results, item, info):
         item_content = item['content']
@@ -150,19 +153,22 @@ class GrabMediaPipeline(MediaPipeline):
             if not success:
                 raise result
             else:
-                item_content = item_content.replace(result['url'], result['local_url'])
+                item_content = item_content.replace(result['url'],
+                    result['local_url'])
         item['content'] = item_content
         return item
 
     def process_media(self, response):
         pass
 
+
 class GrabberImagesPipeline(GrabMediaPipeline):
     '''
         Grab all images both from css and html pages
     '''
 
-    link_extractor = GrabberLinkExtractor(tags=['img', 'input'], attrs=['src', ], deny_extensions=[], canonicalize=False)
+    link_extractor = GrabberLinkExtractor(tags=['img', 'input'],
+        attrs=['src', ], deny_extensions=[], canonicalize=False)
 
     def get_links_from_css(self, style_text, item):
         '''
@@ -192,7 +198,8 @@ class GrabberImagesPipeline(GrabMediaPipeline):
         return requests
 
     def get_media_requests(self, item, info):
-        requests = super(GrabberImagesPipeline, self).get_media_requests(item, info)
+        requests = \
+            super(GrabberImagesPipeline, self).get_media_requests(item, info)
         if item['css']:
             requests.extend(self.get_links_from_css(item['content'], item))
         else:
@@ -205,13 +212,17 @@ class GrabberImagesPipeline(GrabMediaPipeline):
 
 
 class GrabberJSPipeline(GrabMediaPipeline):
-    link_extractor = GrabberLinkExtractor(tags=['script', ], attrs=['src', ], deny_extensions=[], canonicalize=False)
+    link_extractor = GrabberLinkExtractor(tags=['script', ],
+        attrs=['src', ], deny_extensions=[], canonicalize=False)
+
 
 class GrabberSWFPipeline(GrabMediaPipeline):
     '''
         Grab embedded objects(swf) from page
     '''
-    link_extractor = GrabberLinkExtractor(tags=['embed', ], attrs=['src', ], deny_extensions=[], canonicalize=False)
+    link_extractor = GrabberLinkExtractor(tags=['embed', ], attrs=['src', ],
+        deny_extensions=[], canonicalize=False)
+
 
 class GarbberCSSImagePipeline(GrabMediaPipeline):
     '''
@@ -221,7 +232,8 @@ class GarbberCSSImagePipeline(GrabMediaPipeline):
     def process_item(self, item, spider):
         ' work just with css pages '
         if item['css']:
-            return super(GarbberCSSImagePipeline, self).process_item(item, spider)
+            return super(GarbberCSSImagePipeline, self)\
+                .process_item(item, spider)
         return item
 
     def get_media_requests(self, item, info):

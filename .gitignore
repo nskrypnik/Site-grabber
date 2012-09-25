@@ -3,5 +3,6 @@ bin/
 develop-eggs/
 parts/
 *.pyc
+*.nja
 .installed.cfg
 sitegrabber.db

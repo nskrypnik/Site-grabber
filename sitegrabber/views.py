@@ -1,3 +1,5 @@
+import urllib
+
 from pyramid.response import Response
 from pyramid.view import view_config
 from pyramid.httpexceptions import HTTPNotFound, HTTPFound
@@ -11,19 +13,21 @@ def not_found_handler(request):
     '''
         Usually in our application we use this view.
     '''
-    host = request.host.split(':')[0] # get url of instance
+    host = request.host.split(':')[0]  # get url of instance
     site = WebSite.get(host)
 
     if site:
         path = request.path
         uri = path
-        # Construct right url here. For that use GET dictionary with sorted parameters to
+        # Construct right url here. For that use GET
+        # dictionary with sorted parameters to
         # get well formed url for seeking in database
         if request.path_qs.find('?') != -1:
             query_string = request.path_qs.split('?')[1]
             value_pairs = query_string.split('&')
             value_pairs.sort()
             uri = "%s?%s" % (uri, '&'.join(value_pairs))
+        uri = urllib.unquote_plus(uri)
         resource = WebResource.get(uri, site.id)
         if resource is None and uri[-1] != '/' and uri.find('?') == -1:
             uri += '/'
